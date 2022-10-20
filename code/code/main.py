@@ -6,6 +6,22 @@ from time import sleep
 from pico_i2c_lcd import I2cLcd
 import urequests as requests
 
+from time import sleep
+from ili9341 import Display, color565
+from machine import Pin, SPI
+from xglcd_font import XglcdFont
+
+spi = SPI(0, baudrate=10000000, sck=Pin(18), mosi=Pin(19))
+display = Display(spi, dc=Pin(15), cs=Pin(17), rst=Pin(14))
+print('Loading fonts...')
+print('Loading espresso_dolce')
+espresso_dolce = XglcdFont('fonts/EspressoDolce18x24.c', 18, 24)
+def test(x,y,tekst):
+    display.draw_text(x, y, tekst, espresso_dolce, color565(255, 255, 255),landscape=True)
+    
+
+
+#voor de lcd
 i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
 I2C_ADDR = i2c.scan()[0]
 lcd = I2cLcd(i2c, I2C_ADDR, 2, 16)
@@ -38,13 +54,19 @@ else:
     status = wlan.ifconfig()
     print( 'ip = ' + status[0] )
     #post doen
-    res = requests.post(url='https://the-big-c-dev.pages.dev/api/register/1234', headers={"x-api-key" : "bleepbloop"})
-    print(res.text)
+    #res = requests.post(url='https://the-big-c-dev.pages.dev/api/register/1234', headers={"x-api-key" : "bleepbloop"})
+    #print(res.text)
     #lcd tonen
     while True:
         lcd.putstr(tijd_format)
-        lcd.putstr("\ngeen gratis")#\n doet nieuwe lijn
-        sleep(2)
+        lcd.putstr("\nno free coffee")#\n doet nieuwe lijn
+        test(0,310,"Welcome at The Big C!")
+        test(75,310,"Scan your customer card.")
+
+        sleep(9)
+        display.clear()
         lcd.clear()
-    
+        sleep(3)
+        
+    display.cleanup()
     
