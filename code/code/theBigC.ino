@@ -26,13 +26,10 @@ String xApiKey = "bleepbloop";
 const char* ssid = "embedded";
 const char* password =  "IoTembedded";
 
-//datum en tijd
+//date and time
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
-
-//int coffeeCount = 5;
-//bool freeCoffee = false;
 
 //card reader
 PN532_I2C pn532i2c(Wire);
@@ -43,8 +40,7 @@ volatile bool connected = false;
 //lcd
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-
-// For the Adafruit shield, these are the default.
+// tft
 #define TFT_DC 14
 #define TFT_CS 15
 #define TFT_RST 32
@@ -54,10 +50,15 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
+unsigned long timeNowMillis = 1;
+unsigned long timeLastCard = 0;
+bool firstCardScanned = false;
+bool alreadyDrawn = false;
+
 ///////////////////////////
 //      FUNCTIONS        //
 //////////////////////////
-
+//this function returns the current time as a string, example "14:45:55"
 String time_now(){
   String current_time = "";
   struct tm timeinfo;
@@ -79,87 +80,18 @@ String time_now(){
   }
   return current_time;  
 }
+
 /////////////////lcd screen////////////////////////////
-void lcd_screen(String lijn1, String lijn2){
+//this function puts the 2 strings that are given as parameters on the screen
+void lcd_screen(String line1, String line2){
   lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print(lijn1);
-  lcd.setCursor(0,1);
-  lcd.print(lijn2);
+  lcd.setCursor(0,0);//cursor at beginning of line 1
+  lcd.print(line1);
+  lcd.setCursor(0,1);//cursor at beginning of line 2
+  lcd.print(line2);
 }
 
-////////////////card reader///////////////////////
-bool connect() {
-  
-  nfc.begin();
 
-  // Connected, show version
-  uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata)
-  {
-    Serial.println("PN53x card not found!");
-    return false;
-  }
-
-  //port
-  Serial.print("Found chip PN5"); Serial.println((versiondata >> 24) & 0xFF, HEX);
-  Serial.print("Firmware version: "); Serial.print((versiondata >> 16) & 0xFF, DEC);
-  Serial.print('.'); Serial.println((versiondata >> 8) & 0xFF, DEC);
-
-  // Set the max number of retry attempts to read from a card
-  // This prevents us from waiting forever for a card, which is
-  // the default behaviour of the PN532.
-  nfc.setPassiveActivationRetries(0xFF);
-
-  // configure board to read RFID tags
-  nfc.SAMConfig();
-
-  Serial.println("Waiting for card (ISO14443A Mifare)...");
-  Serial.println("");
-
-  return true;
-}
-
-void read_card(){
-  boolean success;
-  // Buffer to store the UID
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
-  // UID size (4 or 7 bytes depending on card type)
-  uint8_t uidLength;
-
-  while (!connected) {
-    connected = connect();
-  }
-  
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
-
-  // If the card is detected, print the UID
-  if (success)
-  {
-    tone(BUZZER, 1000); // Send 1KHz sound signal...
-    delay(500);        // ...for 1 sec
-    noTone(BUZZER);
-    String cardNumber = "";
-    Serial.println("Card Detected");
-    Serial.print("Size of UID: "); Serial.print(uidLength, DEC);
-    Serial.println(" bytes");
-    Serial.print("UID: ");
-    for (uint8_t i = 0; i < uidLength; i++)
-    {
-      Serial.print(" 0x"); Serial.print(uid[i], HEX);
-      cardNumber += uid[i];
-    }
-    
-    Serial.println("");
-    Serial.println(cardNumber);
-    Serial.println("");
-    String complete_url = originalUrl+cardNumber;
-    post_request(complete_url);
-    
-    delay(100);
-    connected = connect();
-  }
-}
 
 ///////////////tft screen//////////////////////////////
 
@@ -167,12 +99,10 @@ void read_card(){
 // Return the minimum of two values a and b
 #define minimum(a,b)     (((a) < (b)) ? (a) : (b))
 
-//====================================================================================
-//   Decode and paint onto the TFT screen
-//====================================================================================
+//Decodes and paints onto the TFT screen
 void jpegRender(int xpos, int ypos) {
 
-  // retrieve infomration about the image
+  // retrieves infomration about the image
   uint16_t  *pImg;
   uint16_t mcu_w = JpegDec.MCUWidth;
   uint16_t mcu_h = JpegDec.MCUHeight;
@@ -224,7 +154,6 @@ void jpegRender(int xpos, int ypos) {
       }
     }
 
-
     // draw image MCU block only if it will fit on the screen
     if ( ( mcu_x + win_w) <= tft.width() && ( mcu_y + win_h) <= tft.height())
     {
@@ -243,21 +172,16 @@ void jpegRender(int xpos, int ypos) {
   // print the results to the serial port
   Serial.print  ("Total render time was    : "); Serial.print(drawTime); Serial.println(" ms");
   Serial.println("=====================================");
-
 }
 
-//====================================================================================
+
 //   This function opens the Filing System Jpeg image file and primes the decoder
-//====================================================================================
 void drawFSJpeg(const char *filename, int xpos, int ypos) {
 
-  Serial.println("=====================================");
   Serial.print("Drawing file: "); Serial.println(filename);
-  Serial.println("=====================================");
-
+  
   fs::File jpgFile = SPIFFS.open( filename, "r");    // File handle reference for SPIFFS
 
- 
   if ( !jpgFile ) {
     Serial.print("ERROR: File \""); Serial.print(filename); Serial.println ("\" not found!");
     return;
@@ -274,10 +198,10 @@ void drawFSJpeg(const char *filename, int xpos, int ypos) {
 }
 
 
-
+//show how many coffies to go until a free one
 void tftCoffieLeft(int counter){
-  drawFSJpeg("/koffieBonen.jpg", 0, 0);
-  tft.fillRoundRect(20,60,280,120,9,ILI9341_BLACK);
+  drawFSJpeg("/koffieBonen.jpg", 0, 0);//draws foto on tft screen
+  tft.fillRoundRect(20,60,280,120,9,ILI9341_BLACK);//draws a black rectancle on screen
   tft.setCursor(150,120);
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(ILI9341_WHITE);
@@ -287,111 +211,212 @@ void tftCoffieLeft(int counter){
   tft.setCursor(50,160);
   tft.setTextColor(ILI9341_WHITE);
   tft.setTextSize(1);
-  tft.print("more for a free coffee");
+  tft.print("more for a free coffee");//writes text on screen(over black rectangle)
 }
 
 void post_request(String url){
-    if(WiFi.status()== WL_CONNECTED){ //Check if wifi is connected
+  if(WiFi.status()== WL_CONNECTED){ //Check if wifi is connected
   
-   HTTPClient http;   
-  
-   http.begin(url);  
-   http.addHeader("Content-Type", "application/json");             
-   http.addHeader("x-api-key", xApiKey);
-  
-   int httpResponseCode = http.POST("post from esp32"); //do post request
-  
-   if(httpResponseCode>0){
-    String response = http.getString(); //save response in a variable
-    Serial.println(httpResponseCode);   //the response code
-    Serial.println(response);
-    deserializeJson(doc, response);
-    JsonObject response_json = doc.as<JsonObject>();
+    HTTPClient http;   
+    
+    http.begin(url);  
+    //set the headers
+    http.addHeader("Content-Type", "application/json");             
+    http.addHeader("x-api-key", xApiKey);
+    
+    int httpResponseCode = http.POST("post from esp32"); //do post request
+    
+    if(httpResponseCode>0){
+      String response = http.getString(); //save response in a variable
+      Serial.println(httpResponseCode);   //the response code
+      Serial.println(response);
+      deserializeJson(doc, response);
+      JsonObject response_json = doc.as<JsonObject>();//make the response into a jsonObject
 
-    bool freeCoffee = response_json["data"]["freeCoffee"];
-    int coffeeCount = response_json["data"]["count"];
-    int coffeeToGo = 10-coffeeCount;
+      bool freeCoffee = response_json["data"]["freeCoffee"];//get the needed info from the response
+      int coffeeCount = response_json["data"]["count"];
+      int coffeeToGo = 10-coffeeCount;
 
-    Serial.println(freeCoffee);    
-    Serial.println(coffeeCount);   
-    if(freeCoffee){
-      lcd_screen(time_now(),"Free Coffee");
-      drawFSJpeg("/free.jpg", 0, 0); 
+      Serial.println(freeCoffee);    
+      Serial.println(coffeeCount);   
+      //draw on the tft screen
+      if(freeCoffee){
+        lcd_screen(time_now(),"Free Coffee");
+        drawFSJpeg("/free.jpg", 0, 0); 
+      }
+      else{
+        lcd_screen(time_now(),"NO free coffee");
+        tftCoffieLeft(coffeeToGo);
+      }  
+    }else{
+      Serial.print("Error on sending POST: ");
+      Serial.println(httpResponseCode);
     }
-    else{
-      lcd_screen(time_now(),"NO free coffee");
-      tftCoffieLeft(coffeeToGo);
-    }  
-   }else{
-    Serial.print("Error on sending POST: ");
-    Serial.println(httpResponseCode);
-   }
-  
-   http.end(); //stop the connection
+    
+    http.end(); //stop the connection
 
    
   
- }else{
-    lcd_screen("wifi","connecting");
+ }else//wifi is not connected
+ {
+    lcd_screen("wifi","connecting");//show the barista there is a wifi problem
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) { //try to connect to wifi
-    delay(1000);
-    Serial.println("Connecting to WiFi..");
-  }
-  Serial.println("WiFi connected");
+      vTaskDelay(500/portTICK_PERIOD_MS);   
+      Serial.println("Connecting to WiFi..");
+    }
+    lcd_screen("wifi","connected");//show the barista the wifi is ok again
+    Serial.println("WiFi connected");
  }
 
+}
+
+////////////////card reader///////////////////////
+//this function returns true if a card can be read
+bool connect() {
+  
+  nfc.begin();
+
+  // checks if te card reader is found
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata)
+  {
+    Serial.println("PN53x card not found!");
+    return false;
+  }
+
+  //prints the card reader version
+  Serial.print("Found chip PN5"); Serial.println((versiondata >> 24) & 0xFF, HEX);
+  Serial.print("Firmware version: "); Serial.print((versiondata >> 16) & 0xFF, DEC);
+  Serial.print('.'); Serial.println((versiondata >> 8) & 0xFF, DEC);
+
+  // Set the max number of retry attempts to read from a card
+  nfc.setPassiveActivationRetries(0xFF);
+
+  // configures the board to read RFID tags
+  nfc.SAMConfig();
+
+  Serial.println("Waiting for card (ISO14443A Mifare)...");
+  Serial.println("");
+
+  return true;
+}
+//this function reads the card uid and changes the screens accordingly
+void readCard(void * parameter){
+  for(;;){
+    boolean success;
+    // Buffer to store the UID
+    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+    // length of UID, can be 4 or 7
+    uint8_t uidLength;
+    
+    //reads the uid
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+
+    // If the card is detected, print the UID
+    if (success)
+    {
+      tone(BUZZER, 1000); //sends a tone of 1kHz
+      vTaskDelay(500/portTICK_PERIOD_MS);        
+      noTone(BUZZER);//stops the tone
+      String cardNumber = "";
+      Serial.println("Card Detected");
+      Serial.print("Size of UID: "); Serial.print(uidLength, DEC);
+      Serial.println(" bytes");
+      Serial.print("UID: ");
+      for (uint8_t i = 0; i < uidLength; i++)
+      {
+        Serial.print(" 0x"); Serial.print(uid[i], HEX);
+        cardNumber += uid[i];
+      }
+      
+      Serial.println("");
+      Serial.println(cardNumber);
+      Serial.println("");
+      String complete_url = originalUrl+cardNumber;//ads the card number to the post url
+      post_request(complete_url);// makes the post request
+      
+      vTaskDelay(10/portTICK_PERIOD_MS);   
+      timeLastCard = millis();
+      firstCardScanned = true;
+      alreadyDrawn = false;
+    }
+  }
 }
 
 
 ////////////////////////////////
 ////////////SETUP//////////////
 ///////////////////////////////
-
 void setup()
 {
-  Serial.begin(115200); // Used for messages
+  Serial.begin(115200);
+  //get lcd ready 
   lcd.init();
   lcd.backlight();
 
-  delay(10);
+  vTaskDelay(10/portTICK_PERIOD_MS);
   lcd_screen("wifi","connecting");
   
+  //make wifi connection
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    vTaskDelay(500/portTICK_PERIOD_MS);   
     Serial.println("Connecting to WiFi..");
   }
   Serial.println("Connected to the WiFi network");
 
   lcd_screen("wifi","connected");
 
-  // Init and get the time
+  // Init the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
+  //get tft screen ready, set the orientation en make screen black
   tft.begin();
   tft.setRotation(1);  // 0 & 2 Portrait. 1 & 3 landscape
   tft.fillScreen(0);
 
+  //init the file system
   if (!SPIFFS.begin()) {
     Serial.println("SPIFFS initialisation failed!");
     while (1) yield(); // Stay here twiddling thumbs waiting
   }
   Serial.println("\r\nInitialisation done.");
 
+  //draw the logo onto the screen
   drawFSJpeg("/theBigC.jpg", 0, 0); 
 
-  pinMode(BUZZER, OUTPUT);
+  //set the buzzer pin as output
+  pinMode(BUZZER, OUTPUT);//make shure the card reader is ready
+  //waits until card reader is ready
+  while (!connected) {
+    connected = connect();
+  }
+  Serial.println("now with millis");
+  //makes te task that reads the card
+  xTaskCreate(readCard,"readCard",10000,NULL,1,NULL);
 
 }
 
-///////////////////
-////LOOP///////////
-///////////////////
+
+////////////////////////////////
+////////////LOOP//////////////
+///////////////////////////////
 void loop()
 {
-  read_card();
-
-
+  //check if it's been 10 seconds sinds the last card was scanned
+  //then go back to the standard image on the tft screen
+  if (firstCardScanned)
+  {
+    timeNowMillis = millis();
+    if((timeNowMillis>(timeLastCard+10000)) && (!alreadyDrawn)){
+      //draw the logo onto the screen
+      drawFSJpeg("/theBigC.jpg", 0, 0); 
+      alreadyDrawn = true;
+    }
+  }
+  
+  vTaskDelay(1000/portTICK_PERIOD_MS);
+  
 }
