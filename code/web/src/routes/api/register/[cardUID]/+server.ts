@@ -25,6 +25,7 @@ export const POST: RequestHandler = async ({ params, request, platform }) => {
 			status: status[status.CREATED],
 			data: {
 				count: value,
+				countToGo: freeCoffeeAmount - value,
 				freeCoffee: value === freeCoffeeAmount
 			}
 		},
