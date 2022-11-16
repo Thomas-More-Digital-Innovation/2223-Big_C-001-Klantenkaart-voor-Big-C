@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ params, request, platform }) => {
 
 	value += 1;
 
-	if (value === freeCoffeeAmount) {
+	if (value >= freeCoffeeAmount) {
 		await platform.env.CARDS.put(cardUID, '0');
 	} else {
 		await platform.env.CARDS.put(cardUID, value.toString());
