@@ -7,8 +7,8 @@ declare namespace App {
 	// interface Error {}
 	interface Platform {
 		env: {
+			SETTINGS: KVNamespace;
 			CARDS: KVNamespace;
-			FREE_COFFEE_AMOUNT: string;
 			API_TOKEN: string;
 		};
 
