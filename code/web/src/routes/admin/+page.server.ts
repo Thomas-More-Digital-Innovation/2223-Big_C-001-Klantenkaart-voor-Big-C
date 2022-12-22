@@ -42,11 +42,11 @@ export const load: PageServerLoad = async ({ platform }): Promise<AdminPageData>
 
 	const freeCoffeeAmount = (await platform.env.SETTINGS.get('freeCoffeeAmount')) || '0';
 
-	const reportKeys = await platform.env.CARDS.list<string>({ prefix: 'monthly:' });
+	const reportKeys = await platform.env.SETTINGS.list<string>({ prefix: 'monthly:' });
 	const reports: Report[] = [];
 
 	for (const reportKey of reportKeys.keys) {
-		const reportAmount = (await platform.env.CARDS.get(reportKey.name)) || '0';
+		const reportAmount = (await platform.env.SETTINGS.get(reportKey.name)) || '0';
 
 		reports.push({
 			date: reportKey.name.replace('monthly:', ''),

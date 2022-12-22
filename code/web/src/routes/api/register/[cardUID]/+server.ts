@@ -15,12 +15,12 @@ export const POST: RequestHandler = async ({ params, request, platform }) => {
 
 	const today = new Date();
 	const monthlyKey = `monthly:${today.getUTCFullYear()}/${today.getUTCMonth()}`;
-	let monthlyValue = parseInt((await platform.env.CARDS.get(monthlyKey)) || '0');
+	let monthlyValue = parseInt((await platform.env.SETTINGS.get(monthlyKey)) || '0');
 
 	value += 1;
 	monthlyValue += 1;
 
-	await platform.env.CARDS.put(monthlyKey, monthlyValue.toString());
+	await platform.env.SETTINGS.put(monthlyKey, monthlyValue.toString());
 
 	if (value >= freeCoffeeAmount) {
 		await platform.env.CARDS.put(cardUID, '0');
