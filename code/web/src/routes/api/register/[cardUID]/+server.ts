@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ params, request, platform }) => {
 	let value = parseInt((await platform.env.CARDS.get(cardUID)) || '0');
 
 	const today = new Date();
-	const monthlyKey = `monthly:${today.getUTCFullYear()}/${today.getUTCMonth()}`;
+	const monthlyKey = `monthly:${today.getUTCFullYear()}/${today.getUTCMonth() + 1}`;
 	let monthlyValue = parseInt((await platform.env.SETTINGS.get(monthlyKey)) || '0');
 
 	value += 1;
