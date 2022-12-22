@@ -3,13 +3,24 @@
 
 	export let data: PageData;
 	export let form: ActionData;
+
+	const compareReportDate = (a: string, b: string): number => {
+		const splittedA = a.split('/');
+		const splittedB = b.split('/');
+
+		const yearDiff = parseInt(splittedA[0]) - parseInt(splittedB[0]);
+		if (yearDiff !== 0) return -yearDiff;
+
+		const monthDiff = parseInt(splittedA[1]) - parseInt(splittedB[1]);
+		return -monthDiff;
+	};
 </script>
 
-<div class="py-4 flex flex-col items-center">
-	<div class="max-w-md w-full flex flex-col gap-2">
-		<h1 class="text-2xl">Admin</h1>
+<div class="py-4 px-4 flex flex-col items-center">
+	<div class="w-full grid grid-cols-1 md:grid-cols-2 gap-2">
+		<h1 class="text-2xl col-span-full">Admin</h1>
 		<form method="post">
-			<h2 class="text-lg">Edit amount till free coffee</h2>
+			<h2 class="text-lg">Settings</h2>
 			{#if form?.success}
 				<div class="alert alert-success shadow-lg">
 					<div>
@@ -34,7 +45,7 @@
 			{/if}
 			<div class="form-control w-full">
 				<label class="label" for="freeCoffeeAmount">
-					<span class="label-text">Amount of coffees?</span>
+					<span class="label-text">Amount till freebie?</span>
 				</label>
 				<input
 					type="number"
@@ -59,5 +70,26 @@
 			</div>
 			<button type="submit" class="btn btn-primary btn-block">Save</button>
 		</form>
+		<div>
+			<h2 class="text-lg">Reports</h2>
+			<div class="overflow-x-auto">
+				<table class="table table-zebra w-full">
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>Amount</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.reports.sort((a, b) => compareReportDate(a.date, b.date)) as report}
+							<tr>
+								<th>{report.date}</th>
+								<td>{report.amount}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 </div>
