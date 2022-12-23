@@ -17,7 +17,7 @@
 DynamicJsonDocument doc(1024);//for the post response
 
 String originalUrl = "https://the-big-c.pages.dev/api/register/";
-String xApiKey = "enter api key here";
+String xApiKey = "KzkLEJbcipUW6PWR3eUk7wH3UpgU9RMewxFjmvgAHVvi#DUa2o@zFY9YeCbzM5Ra";
 
 //buzzer
 #define BUZZER 33
@@ -202,13 +202,18 @@ void drawFSJpeg(const char *filename, int xpos, int ypos) {
 void tftCoffieLeft(int counter){
   drawFSJpeg("/koffieBonen.jpg", 0, 0);//draws foto on tft screen
   tft.fillRoundRect(20,60,280,120,9,ILI9341_BLACK);//draws a black rectancle on screen
-  tft.setCursor(150,120);
+  if(counter>=10){
+    tft.setCursor(120,120);
+  }else{
+    tft.setCursor(150,120);
+  }
+  
   tft.setFont(&FreeSans12pt7b);
   tft.setTextColor(ILI9341_WHITE);
   tft.setTextSize(3);
   tft.print(counter);
 
-  tft.setCursor(50,160);
+  tft.setCursor(70,160);
   tft.setTextColor(ILI9341_WHITE);
   tft.setTextSize(1);
   tft.print("more for a freebie");//writes text on screen(over black rectangle)
