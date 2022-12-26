@@ -18,14 +18,16 @@ export const POST: RequestHandler = async ({ params, request, platform }) => {
 	let monthlyValue = parseInt((await platform.env.SETTINGS.get(monthlyKey)) || '0');
 
 	value += 1;
-	monthlyValue += 1;
-
-	await platform.env.SETTINGS.put(monthlyKey, monthlyValue.toString());
 
 	if (value >= freeCoffeeAmount) {
 		await platform.env.CARDS.put(cardUID, '0');
 	} else {
 		await platform.env.CARDS.put(cardUID, value.toString());
+	}
+
+	if (value === freeCoffeeAmount) {
+		monthlyValue += 1;
+		await platform.env.SETTINGS.put(monthlyKey, monthlyValue.toString());
 	}
 
 	return json(
